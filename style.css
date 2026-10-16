@@ -5,3 +5,32 @@
 @media print{.account-dialog,.cloud-panel{display:none!important}}
 /* Optional sections and section ordering */
 .section-manager{display:grid;gap:10px}.section-control{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border:1px solid #e2e8f0;border-radius:9px}.section-control label{display:flex;align-items:center;gap:8px;font-weight:600}.section-control .order-actions{display:flex;gap:5px}.section-control button{border:1px solid #cbd5e1;background:white;border-radius:6px;padding:5px 9px;cursor:pointer}.section-control button:disabled{opacity:.3;cursor:default}.section-help{font-size:12px;color:#64748b}.r-section{break-inside:avoid-page}.r-entry{break-inside:avoid-page}
+
+/* Fix section manager checkbox alignment (override generic form label styles). */
+.section-manager .section-control > label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  cursor: pointer;
+}
+.section-manager .section-control > label > input[type="checkbox"] {
+  appearance: auto;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+  accent-color: #2563eb;
+}
+.section-manager .section-control > .order-actions {
+  flex: 0 0 auto;
+}
