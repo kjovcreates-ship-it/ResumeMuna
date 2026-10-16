@@ -11,11 +11,59 @@ function section(title,inner){return inner?`<section class="r-section"><h3>${tit
 function entry(head,sub,dates,description){return `<div class="r-entry"><div class="r-entry-head"><strong>${escapeHTML(head)}</strong><span class="dates">${escapeHTML(dates)}</span></div>${sub?`<div class="r-sub">${escapeHTML(sub)}</div>`:''}${description?`<div class="r-description">${escapeHTML(description)}</div>`:''}</div>`;}
 const sectionLabels={summary:'Professional Summary',experience:'Work Experience',education:'Education',skills:'Skills',projects:'Projects',certifications:'Certifications & Licenses',languages:'Languages',awards:'Awards & Achievements',volunteer:'Volunteer Experience',references:'Professional References',customSections:'Custom Sections'};
 const sectionKeys=Object.keys(sectionLabels);
-function normalize(){for(const k of Object.keys(schemas))if(!Array.isArray(data[k]))data[k]=[];const order=Array.isArray(data.sectionOrder)?data.sectionOrder:[];data.sectionOrder=[...new Set([...order.filter(k=>sectionKeys.includes(k)),...sectionKeys])];data.hiddenSections=Array.isArray(data.hiddenSections)?data.hiddenSections.filter(k=>sectionKeys.includes(k)):[];}
-function renderManager(){const root=document.getElementById('sectionManager');if(!root)return;root.replaceChildren();data.sectionOrder.forEach((key,index)=>{const line=document.createElement('div');line.className='section-control';const label=document.createElement('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=!data.hiddenSections.includes(key);checkbox.addEventListener('change',()=>{data.hiddenSections=checkbox.checked?data.hiddenSections.filter(x=>x!==key):[...data.hiddenSections,key];changed();});label.append(checkbox,document.createTextNode(sectionLabels[key]));const controls=document.createElement('div');controls.className='order-actions';for(const [symbol,delta] of [['↑',-1],['↓',1]]){const b=document.createElement('button');b.type='button';b.textContent=symbol;b.title=delta<0?'Move up':'Move down';b.disabled=index+delta<0||index+delta>=data.sectionOrder.length;b.onclick=()=>{const other=index+delta;[data.sectionOrder[index],data.sectionOrder[other]]=[data.sectionOrder[other],data.sectionOrder[index]];renderManager();changed();};controls.append(b);}line.append(label,controls);root.append(line);});}
-function renderResume(){const r=document.getElementById('resume');r.className='resume-paper '+(data.fontSize==='compact'||data.fontSize==='spacious'?data.fontSize:'');r.style.setProperty('--resume-accent',/^#[0-9a-f]{6}$/i.test(data.accent)?data.accent:'#1d4ed8');const contact=[data.email,data.phone,data.location,data.website].filter(x=>String(x??'').trim()).map(escapeHTML).join(' &nbsp;·&nbsp; ');const list=(key,fn)=>data[key].filter(x=>Object.values(x).some(v=>String(v??'').trim())).map(fn).join('');const content={summary:data.summary?`<p>${escapeHTML(data.summary)}</p>`:'',experience:list('experience',x=>entry(x.role,x.company,x.dates,x.description)),education:list('education',x=>entry(x.degree,x.school,x.dates,x.description)),skills:data.skills?`<p>${escapeHTML(data.skills)}</p>`:'',projects:list('projects',x=>entry(x.name,x.link,'',x.description)),certifications:list('certifications',x=>entry(x.name,x.issuer,x.dates,x.credential)),languages:list('languages',x=>entry(x.name,x.level,'','')),awards:list('awards',x=>entry(x.name,x.issuer,x.dates,x.description)),volunteer:list('volunteer',x=>entry(x.role,x.organization,x.dates,x.description)),references:list('references',x=>entry(x.name,x.role,'',x.contact))};const custom=list('customSections',x=>section(escapeHTML(x.title||'Additional Information'),x.content?`<p>${escapeHTML(x.content)}</p>`:''));r.innerHTML=`<header class="r-header"><div class="r-name">${escapeHTML(data.fullName||'Your Name')}</div>${data.jobTitle?`<div class="r-title">${escapeHTML(data.jobTitle)}</div>`:''}${contact?`<div class="r-contact">${contact}</div>`:''}</header>`+data.sectionOrder.filter(k=>!data.hiddenSections.includes(k)).map(k=>k==='customSections'?custom:section(sectionLabels[k],content[k])).join('');scalePreview();}
+function hasSectionContent(key){
+  if(key==='summary'||key==='skills')return Boolean(String(data[key]??'').trim());
+  return Array.isArray(data[key])&&data[key].some(item=>item&&typeof item==='object'&&Object.values(item).some(value=>String(value??'').trim()));
+}
+function sectionIsChecked(key){
+  const choice=data.sectionVisibility[key];
+  return choice==='shown'||(choice!=='hidden'&&hasSectionContent(key));
+}
+function normalize(){
+  for(const k of Object.keys(schemas))if(!Array.isArray(data[k]))data[k]=[];
+  const order=Array.isArray(data.sectionOrder)?data.sectionOrder:[];
+  data.sectionOrder=[...new Set([...order.filter(k=>sectionKeys.includes(k)),...sectionKeys])];
+  // Migrate older saved resumes without changing any previously hidden sections.
+  const legacyHidden=Array.isArray(data.hiddenSections)?data.hiddenSections:[];
+  const visibility=data.sectionVisibility&&typeof data.sectionVisibility==='object'&&!Array.isArray(data.sectionVisibility)?data.sectionVisibility:{};
+  data.sectionVisibility=Object.fromEntries(sectionKeys.map(key=>[key,['auto','shown','hidden'].includes(visibility[key])?visibility[key]:legacyHidden.includes(key)?'hidden':'auto']));
+  data.hiddenSections=sectionKeys.filter(key=>data.sectionVisibility[key]==='hidden');
+}
+function renderManager(){
+  const root=document.getElementById('sectionManager');if(!root)return;
+  root.replaceChildren();
+  data.sectionOrder.forEach((key,index)=>{
+    const line=document.createElement('div');line.className='section-control';
+    const label=document.createElement('label');const checkbox=document.createElement('input');
+    checkbox.type='checkbox';checkbox.checked=sectionIsChecked(key);
+    checkbox.addEventListener('change',()=>{
+      data.sectionVisibility[key]=checkbox.checked?'shown':'hidden';
+      data.hiddenSections=sectionKeys.filter(k=>data.sectionVisibility[k]==='hidden');
+      changed();
+    });
+    label.append(checkbox,document.createTextNode(sectionLabels[key]));
+    if(!hasSectionContent(key)){
+      const empty=document.createElement('span');empty.className='section-empty';empty.textContent='Empty';
+      line.append(empty);
+    }
+    const controls=document.createElement('div');controls.className='order-actions';
+    for(const [symbol,delta] of [['↑',-1],['↓',1]]){
+      const button=document.createElement('button');button.type='button';button.textContent=symbol;
+      button.title=delta<0?'Move up':'Move down';
+      button.disabled=index+delta<0||index+delta>=data.sectionOrder.length;
+      button.onclick=()=>{
+        const other=index+delta;
+        [data.sectionOrder[index],data.sectionOrder[other]]=[data.sectionOrder[other],data.sectionOrder[index]];
+        changed();
+      };
+      controls.append(button);
+    }
+    line.prepend(label);line.append(controls);root.append(line);
+  });
+}
+function renderResume(){const r=document.getElementById('resume');r.className='resume-paper '+(data.fontSize==='compact'||data.fontSize==='spacious'?data.fontSize:'');r.style.setProperty('--resume-accent',/^#[0-9a-f]{6}$/i.test(data.accent)?data.accent:'#1d4ed8');const contact=[data.email,data.phone,data.location,data.website].filter(x=>String(x??'').trim()).map(escapeHTML).join(' &nbsp;·&nbsp; ');const list=(key,fn)=>data[key].filter(x=>Object.values(x).some(v=>String(v??'').trim())).map(fn).join('');const content={summary:data.summary?`<p>${escapeHTML(data.summary)}</p>`:'',experience:list('experience',x=>entry(x.role,x.company,x.dates,x.description)),education:list('education',x=>entry(x.degree,x.school,x.dates,x.description)),skills:data.skills?`<p>${escapeHTML(data.skills)}</p>`:'',projects:list('projects',x=>entry(x.name,x.link,'',x.description)),certifications:list('certifications',x=>entry(x.name,x.issuer,x.dates,x.credential)),languages:list('languages',x=>entry(x.name,x.level,'','')),awards:list('awards',x=>entry(x.name,x.issuer,x.dates,x.description)),volunteer:list('volunteer',x=>entry(x.role,x.organization,x.dates,x.description)),references:list('references',x=>entry(x.name,x.role,'',x.contact))};const custom=list('customSections',x=>section(escapeHTML(x.title||'Additional Information'),x.content?`<p>${escapeHTML(x.content)}</p>`:''));r.innerHTML=`<header class="r-header"><div class="r-name">${escapeHTML(data.fullName||'Your Name')}</div>${data.jobTitle?`<div class="r-title">${escapeHTML(data.jobTitle)}</div>`:''}${contact?`<div class="r-contact">${contact}</div>`:''}</header>`+data.sectionOrder.filter(k=>sectionIsChecked(k)).map(k=>k==='customSections'?custom:section(sectionLabels[k],content[k])).join('');scalePreview();}
 function scalePreview(){const wrap=document.querySelector('.paper-wrap'),paper=document.getElementById('resume');if(!wrap||!paper)return;paper.style.transform='';paper.style.marginBottom='';const available=wrap.clientWidth-20;const natural=paper.offsetWidth;if(available<natural){const scale=Math.max(.25,available/natural);paper.style.transform=`scale(${scale})`;paper.style.marginBottom=`-${paper.offsetHeight*(1-scale)}px`;wrap.style.justifyContent='flex-start';}else wrap.style.justifyContent='center';}
-let saveTimer;function changed(){renderResume();const status=document.getElementById('saveStatus');status.textContent='Saving…';clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));status.textContent='Saved locally';}catch{status.textContent='Could not save locally';}},250);}
+let saveTimer;function changed(){renderManager();renderResume();const status=document.getElementById('saveStatus');status.textContent='Saving…';clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));status.textContent='Saved locally';}catch{status.textContent='Could not save locally';}},250);}
 function populate(){document.querySelectorAll('[data-field]').forEach(el=>{el.value=data[el.dataset.field]??'';});normalize();renderFields();renderManager();renderResume();}
 document.querySelectorAll('[data-field]').forEach(el=>el.addEventListener('input',()=>{data[el.dataset.field]=el.value;changed();}));
 document.querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{const type=btn.dataset.add;data[type].push(Object.fromEntries(schemas[type].map(([key])=>[key,''])));renderFields();changed();}));
