@@ -34,3 +34,39 @@
 .section-manager .section-control > .order-actions {
   flex: 0 0 auto;
 }
+
+/* Resume typography: consistent body text across every section.
+   Size modes change the shared base size, not individual entry types. */
+.resume-paper {
+  --resume-body-size: 10pt;
+  font-size: var(--resume-body-size);
+  line-height: 1.35;
+}
+.resume-paper.compact { --resume-body-size: 9pt; }
+.resume-paper.spacious { --resume-body-size: 11pt; }
+.resume-paper .r-section p,
+.resume-paper .r-description,
+.resume-paper .r-sub,
+.resume-paper .r-entry,
+.resume-paper .r-entry strong {
+  font-size: inherit;
+  line-height: inherit;
+}
+.resume-paper .r-entry strong { font-weight: 700; }
+.resume-paper .r-sub { margin: 2px 0 4px; }
+.resume-paper .r-contact,
+.resume-paper .r-entry .dates {
+  font-size: .9em;
+  line-height: 1.35;
+}
+.resume-paper .r-section h3 {
+  font-size: 1em;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.resume-paper .r-title { font-size: 1.2em; }
+.resume-paper .r-name { font-size: 2.6em; }
+/* Keep long descriptions together where practical without forcing whole
+   multi-entry sections onto one page. */
+.resume-paper .r-section { break-inside: auto; page-break-inside: auto; }
+.resume-paper .r-entry { break-inside: avoid; page-break-inside: avoid; }
